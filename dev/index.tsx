@@ -52,7 +52,7 @@ const DevPage = () => (
             url: 'https://app.harness.io/ng/account/Npsd6WrETY-Baq6iHeOHGw/module/idp/create/templates/default/Update_Service',
             color: 'primary',
             variant: 'contained',
-            hiddenData: {
+            additionalData: {
               workflow_type: 'update',
               auto_approve: false,
               notification_enabled: true
@@ -63,7 +63,7 @@ const DevPage = () => (
             url: 'https://app.harness.io/ng/account/Npsd6WrETY-Baq6iHeOHGw/module/idp/create/templates/default/Scale_Service',
             color: 'info',
             variant: 'contained',
-            hiddenData: {
+            additionalData: {
               workflow_type: 'scale',
               scale_direction: 'up',
               target_replicas: 5
@@ -74,7 +74,7 @@ const DevPage = () => (
             url: 'https://app.harness.io/ng/account/Npsd6WrETY-Baq6iHeOHGw/module/idp/create/templates/default/Backup_Service',
             color: 'success',
             variant: 'outlined',
-            hiddenData: {
+            additionalData: {
               workflow_type: 'backup',
               backup_schedule: 'daily',
               compression: true
@@ -85,11 +85,18 @@ const DevPage = () => (
             url: 'https://app.harness.io/ng/account/Npsd6WrETY-Baq6iHeOHGw/module/idp/create/templates/default/Delete_Service',
             color: 'error',
             variant: 'outlined',
-            hiddenData: {
+            additionalData: {
               workflow_type: 'delete',
               permanent: true,
               backup_before_delete: true
-            }
+            },
+            disableConditions: [
+              {
+                path: 'metadata.additionalInfo.monitoring.dashboard',
+                equals: undefined,
+                tooltip: 'Delete disabled - monitoring dashboard not configured'
+              }
+            ]
           }
         ]}
         metadataPath="metadata.new"

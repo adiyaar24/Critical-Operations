@@ -1,70 +1,461 @@
-# Day2OperationsCard Usage Example
+# Day2OperationsCard Usage Examples
 
-Here's how to use the updated `Day2OperationsCard` component with the new `additionalParams` feature:
+A comprehensive guide to using the `Day2OperationsCard` component with detailed examples and explanations.
+
+## 📋 Table of Contents
+
+- [Basic Usage](#basic-usage)
+- [Advanced Configuration](#advanced-configuration)
+- [Parameter Types](#parameter-types)
+- [Array Handling](#array-handling)
+- [Conditional Actions](#conditional-actions)
+- [Real-World Scenarios](#real-world-scenarios)
+- [Troubleshooting](#troubleshooting)
+
+## Basic Usage
+
+### Simple Single Action
 
 ```tsx
+import { Day2OperationsCard } from '@adiyaar/backstage-plugin-critical-operations';
+
 <Day2OperationsCard
-  title="Day 2 Operations"
+  title="Service Operations"
   actions={[
     {
-      name: 'Update Service',
-      url: 'https://app.harness.io/ng/account/YOUR_ACCOUNT/module/idp/create/templates/default/Update_Template',
+      name: 'Deploy Service',
+      url: 'https://app.harness.io/ng/account/YOUR_ACCOUNT/module/idp/create/templates/default/Deploy_Template',
       color: 'primary',
-      variant: 'contained',
-      hiddenData: {
-        operation_type: 'update',
-        priority: 'high'
-      }
+      variant: 'contained'
     }
   ]}
   metadataPath="metadata.additionalInfo.deployment"
-  additionalParams={[
-    "metadata.system",  // Uses 'system' as key (legacy format)
-    "metadata.additionalInfo.abc",  // Uses 'abc' as key (legacy format)
-    { path: "spec.owner", key: "team_owner" },  // Uses 'team_owner' as key
-    { path: "metadata.namespace", key: "k8s_namespace" }  // Uses 'k8s_namespace' as key
+/>
+```
+
+**What this does:**
+- Displays a card titled "Service Operations"
+- Shows a blue "Deploy Service" button
+- Extracts all key-value pairs from `metadata.additionalInfo.deployment`
+- Generates a Harness workflow URL with the extracted data
+
+## Advanced Configuration
+
+### Multiple Actions with Global Parameters
+
+```tsx
+<Day2OperationsCard
+  title="Infrastructure Management"
+  metadataPath="metadata.additionalInfo.config"
+  globalParams={[
+    "metadata.name",                              // Key: name
+    "metadata.namespace",                         // Key: namespace  
+    { path: "spec.owner", key: "team_owner" },   // Key: team_owner
+    { path: "spec.system", key: "system_id" },   // Key: system_id
+    "catalog:component_type"                      // Key: component_type (direct value)
+  ]}
+  autoSelectFirstElement={true}
+  actions={[
+    {
+      name: 'Scale Up',
+      url: 'https://app.harness.io/.../Scale_Template',
+      color: 'success',
+      variant: 'contained',
+      additionalData: {
+        operation_type: 'scale',
+        direction: 'up'
+      }
+    },
+    {
+      name: 'Scale Down', 
+      url: 'https://app.harness.io/.../Scale_Template',
+      color: 'warning',
+      variant: 'outlined',
+      additionalData: {
+        operation_type: 'scale',
+        direction: 'down'
+      }
+    },
+    {
+      name: 'Restart Service',
+      url: 'https://app.harness.io/.../Restart_Template',
+      color: 'info',
+      variant: 'contained'
+    }
   ]}
 />
 ```
 
-## What's New
+**Key Features Explained:**
 
-1. **Enhanced `additionalParams` property**: Now supports both legacy string format and new object format with configurable keys
-2. **Configurable Keys**: You can now specify custom keys for form data instead of automatically using the last path segment
-3. **Backwards Compatibility**: Existing string format still works as before
+- **`globalParams`**: Applied to ALL actions - saves repetition
+- **`additionalData`**: Action-specific static data that overrides metadata
+- **`autoSelectFirstElement: true`**: Arrays like `spec.system: ["sys1", "sys2"]` become `"sys1"`
+- **`catalog:` prefix**: Direct values (not metadata paths)
 
-## How `additionalParams` Works
+## Parameter Types
 
-The `additionalParams` array now supports two formats:
+### 1. Global Parameters (`globalParams`)
+Applied to ALL actions in the card.
 
-### Legacy String Format
-- Each string path is resolved from the entity metadata
-- The last segment of the path becomes the key in the form data
-- Example: `"metadata.system"` adds a `system` key to the form data
+```tsx
+globalParams={[
+  "metadata.identifier",                        // Uses last path segment as key
+  { path: "spec.owner", key: "service_owner" }, // Custom key
+  "catalog:service_category"                    // Direct catalog value
+]}
+```
 
-### New Object Format
-- Use `{ path: "metadata.path", key: "custom_key" }` to specify custom keys
-- The `path` is resolved from entity metadata
-- The `key` becomes the key in the form data
-- Example: `{ path: "spec.owner", key: "team_owner" }` adds a `team_owner` key
+### 2. Per-Action Parameters (`additionalParams`)  
+Applied only to specific actions.
 
-### Priority Order
-Form data is merged in this order (later entries override earlier ones for the same key):
-1. Base metadata from `metadataPath`
-2. Additional parameters from `additionalParams` 
-3. Action-specific `hiddenData`
+```tsx
+actions={[
+  {
+    name: 'Update Database',
+    url: 'https://...',
+    additionalParams: [
+      "metadata.database.connectionString",      // Key: connectionString
+      { path: "metadata.database.port", key: "db_port" }  // Key: db_port
+    ],
+    additionalData: {
+      operation: 'update_schema',
+      backup_required: true
+    }
+  }
+]}
+```
 
-### Example Form Data Output
-Given the example above, the form data might look like:
-```json
-{
-  "environment": "production",  // From metadataPath
-  "replicas": 3,               // From metadataPath  
-  "system": "my-system",       // From "metadata.system"
-  "abc": "some-value",         // From "metadata.additionalInfo.abc"
-  "team_owner": "platform",    // From spec.owner with custom key
-  "k8s_namespace": "default",  // From metadata.namespace with custom key
-  "operation_type": "update",  // From hiddenData
-  "priority": "high"           // From hiddenData
+### 3. Additional Data (`additionalData`)
+Static key-value pairs specific to each action.
+
+```tsx
+additionalData: {
+  operation_type: 'deployment',    // Always includes this
+  priority: 'high',               // Always includes this 
+  environment: 'production'       // Always includes this
 }
 ```
+
+## Array Handling
+
+Configure how arrays in metadata are processed:
+
+### Basic Array Handling
+
+```tsx
+// Entity metadata:
+// metadata.services = ["api-service", "worker-service", "cache-service"]
+
+// Default behavior (autoSelectFirstElement: true)
+globalParams: ["metadata.services"]
+// Result: { services: "api-service" }
+
+// Get full array  
+autoSelectFirstElement: false
+globalParams: ["metadata.services"]
+// Result: { services: ["api-service", "worker-service", "cache-service"] }
+```
+
+### Advanced Array Processing
+
+```tsx
+// Entity metadata:
+// metadata.entries = [
+//   { name: "api", port: 8080, protocol: "http" },
+//   { name: "worker", port: 9090, protocol: "grpc" }
+// ]
+
+arrayHandling={{
+  extractProperties: true,           // Extract properties from array elements
+  extractionStrategy: "first",       // Use first element
+  extractOnlyCommonValues: false,    // Extract all properties (not just common ones)
+  includeOriginalArrayKey: true      // Keep original array too
+}}
+
+// Results in:
+// {
+//   entries: [...],           // Original array
+//   name: "api",             // From first element  
+//   port: 8080,              // From first element
+//   protocol: "http"         // From first element
+// }
+```
+
+#### Extraction Strategies
+
+- **`first`**: Use first array element
+- **`last`**: Use last array element  
+- **`index`**: Use specific index (requires `extractionIndex`)
+- **`mostCommon`**: Use most frequently occurring values
+
+```tsx
+arrayHandling={{
+  extractProperties: true,
+  extractionStrategy: "index",
+  extractionIndex: 1,               // Use second element (index 1)
+  extractOnlyCommonValues: true     // Only extract properties common to ALL elements
+}}
+```
+
+## Conditional Actions
+
+Disable actions based on entity metadata conditions:
+
+### Single Condition
+
+```tsx
+actions={[
+  {
+    name: 'Delete Service',
+    url: 'https://...',
+    color: 'error',
+    disableConditions: [{
+      path: "metadata.environment",
+      equals: "production",
+      tooltip: "Cannot delete production services"
+    }]
+  }
+]}
+```
+
+### Multiple Conditions
+
+```tsx
+disableConditions: [
+  {
+    path: "metadata.status",
+    in: ["archived", "deprecated"], 
+    tooltip: "Service is not active"
+  },
+  {
+    path: "spec.lifecycle", 
+    notEquals: "experimental",
+    tooltip: "Only experimental services can use this operation"
+  },
+  {
+    path: "metadata.replicas",
+    equals: 0,
+    tooltip: "Service has no running instances"
+  }
+]
+```
+
+#### Condition Types
+
+- **`equals`**: Disable if value equals specified value
+- **`notEquals`**: Disable if value does NOT equal specified value
+- **`in`**: Disable if value is in the specified array
+- **`notIn`**: Disable if value is NOT in the specified array
+
+## Real-World Scenarios
+
+### Scenario 1: Microservices Management
+
+```tsx
+// Entity metadata structure:
+metadata:
+  name: payment-service
+  namespace: payments
+  additionalInfo:
+    deployment:
+      replicas: 3
+      environment: staging
+      resources:
+        cpu: "500m"
+        memory: "1Gi"
+    monitoring:
+      enabled: true
+      alerts: ["high-cpu", "memory-leak"]
+spec:
+  owner: team-payments
+  system: ["system:fintech/payments"]
+```
+
+```tsx
+<Day2OperationsCard
+  title="Payment Service Operations"
+  metadataPath="metadata.additionalInfo.deployment"
+  globalParams={[
+    "metadata.name", 
+    "metadata.namespace",
+    { path: "spec.owner", key: "responsible_team" },
+    { path: "spec.system", key: "system_id" }
+  ]}
+  actions={[
+    {
+      name: 'Scale Service',
+      url: 'https://harness.io/.../scale',
+      color: 'primary',
+      additionalParams: [
+        { path: "metadata.additionalInfo.deployment.resources", key: "current_resources" }
+      ],
+      additionalData: { 
+        operation: 'horizontal_scaling' 
+      }
+    },
+    {
+      name: 'Update Configuration', 
+      url: 'https://harness.io/.../update-config',
+      color: 'info',
+      additionalData: { 
+        operation: 'config_update',
+        requires_restart: false 
+      }
+    },
+    {
+      name: 'Promote to Production',
+      url: 'https://harness.io/.../promote',
+      color: 'success', 
+      disableConditions: [{
+        path: "metadata.additionalInfo.deployment.environment",
+        equals: "production",
+        tooltip: "Service is already in production"
+      }],
+      additionalData: {
+        operation: 'environment_promotion',
+        target_environment: 'production'
+      }
+    }
+  ]}
+/>
+```
+
+**Generated Form Data:**
+```json
+{
+  "replicas": 3,
+  "environment": "staging", 
+  "resources": { "cpu": "500m", "memory": "1Gi" },
+  "name": "payment-service",
+  "namespace": "payments", 
+  "responsible_team": "team-payments",
+  "system_id": "system:fintech/payments",
+  "current_resources": { "cpu": "500m", "memory": "1Gi" },
+  "operation": "horizontal_scaling"
+}
+```
+
+### Scenario 2: Database Operations
+
+```tsx
+// Entity with database configuration array:
+metadata:
+  additionalInfo:
+    databases:
+      - name: primary-db
+        type: postgresql
+        version: "13"
+        port: 5432
+        ssl: true
+      - name: cache-db  
+        type: redis
+        version: "6"
+        port: 6379
+        ssl: false
+```
+
+```tsx
+<Day2OperationsCard
+  title="Database Operations"
+  metadataPath="metadata.additionalInfo"
+  arrayHandling={{
+    extractProperties: true,
+    extractionStrategy: "first",        // Extract from primary-db  
+    extractOnlyCommonValues: false,     // Get all properties
+    includeOriginalArrayKey: true       // Keep databases array
+  }}
+  actions={[
+    {
+      name: 'Backup Database',
+      url: 'https://harness.io/.../backup',
+      additionalData: {
+        backup_type: 'full',
+        compression: true
+      }
+    },
+    {
+      name: 'Update SSL Certificate',
+      url: 'https://harness.io/.../ssl-update', 
+      disableConditions: [{
+        path: "metadata.additionalInfo.databases",
+        // Custom condition checking if any database has ssl: false
+        notIn: [{"ssl": false}],
+        tooltip: "All databases already have SSL enabled"
+      }]
+    }
+  ]}
+/>
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. "No metadata found at path"
+```tsx
+// ❌ Wrong - path doesn't exist
+metadataPath="metadata.nonexistent.path"
+
+// ✅ Correct - verify path in entity YAML first
+metadataPath="metadata.additionalInfo.deployment"
+```
+
+#### 2. Empty form data
+```tsx
+// ❌ Wrong - empty object or null at metadataPath
+metadata:
+  additionalInfo:
+    deployment: {}
+
+// ✅ Correct - ensure metadata has actual data
+metadata:
+  additionalInfo:
+    deployment:
+      environment: production
+      replicas: 3
+```
+
+#### 3. Arrays not processing correctly
+```tsx
+// ❌ Wrong - autoSelectFirstElement disabled but expecting single value
+autoSelectFirstElement: false
+globalParams: ["spec.system"]  // Results in array
+
+// ✅ Correct - enable autoSelectFirstElement for single values  
+autoSelectFirstElement: true
+globalParams: ["spec.system"]   // Results in first element
+```
+
+#### 4. Conditions not working
+```tsx
+// ❌ Wrong - path doesn't resolve to expected value
+disableConditions: [{
+  path: "metadata.environment",  // Should be metadata.additionalInfo.deployment.environment
+  equals: "production"
+}]
+
+// ✅ Correct - full path to the actual value
+disableConditions: [{
+  path: "metadata.additionalInfo.deployment.environment", 
+  equals: "production"
+}]
+```
+
+### Debug Tips
+
+1. **Check entity metadata**: Verify paths exist in your entity YAML
+2. **Use browser devtools**: Inspect generated URLs to see form data
+3. **Test with simple config**: Start basic, then add complexity
+4. **Verify condition paths**: Ensure disable condition paths resolve correctly
+
+### Data Precedence Reminder
+
+Form data merging order (later overrides earlier):
+1. Base metadata from `metadataPath`
+2. Array property extraction (if enabled)  
+3. Global parameters from `globalParams`
+4. Per-action parameters from `additionalParams`
+5. Action-specific `additionalData`
+
+This allows fine-grained control over what data gets sent to workflows.
