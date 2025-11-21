@@ -107,7 +107,7 @@ globalParams={[
 ```
 
 ### 2. Per-Action Parameters (`additionalParams`)  
-Applied only to specific actions.
+Applied only to specific actions with optional array conversion.
 
 ```tsx
 actions={[
@@ -116,7 +116,8 @@ actions={[
     url: 'https://...',
     additionalParams: [
       "metadata.database.connectionString",      // Key: connectionString
-      { path: "metadata.database.port", key: "db_port" }  // Key: db_port
+      { path: "metadata.database.port", key: "db_port" },  // Key: db_port
+      { path: "metadata.resourceConfig", key: "entries_update", sendAsArray: true }  // Convert to array
     ],
     additionalData: {
       operation: 'update_schema',
@@ -139,7 +140,7 @@ additionalData: {
 
 ## Array Handling
 
-Configure how arrays in metadata are processed:
+Configure how arrays and objects are processed:
 
 ### Basic Array Handling
 
@@ -157,45 +158,38 @@ globalParams: ["metadata.services"]
 // Result: { services: ["api-service", "worker-service", "cache-service"] }
 ```
 
-### Advanced Array Processing
+### Converting Objects to Arrays
 
 ```tsx
 // Entity metadata:
-// metadata.entries = [
-//   { name: "api", port: 8080, protocol: "http" },
-//   { name: "worker", port: 9090, protocol: "grpc" }
-// ]
+// metadata.resourceConfig = { type: "s3", region: "us-west-2", name: "my-bucket" }
 
-arrayHandling={{
-  extractProperties: true,           // Extract properties from array elements
-  extractionStrategy: "first",       // Use first element
-  extractOnlyCommonValues: false,    // Extract all properties (not just common ones)
-  includeOriginalArrayKey: true      // Keep original array too
-}}
+// Default behavior
+additionalParams: [{ path: "metadata.resourceConfig", key: "config" }]
+// Result: { config: { type: "s3", region: "us-west-2", name: "my-bucket" } }
 
-// Results in:
-// {
-//   entries: [...],           // Original array
-//   name: "api",             // From first element  
-//   port: 8080,              // From first element
-//   protocol: "http"         // From first element
-// }
+// With sendAsArray: true
+additionalParams: [{ path: "metadata.resourceConfig", key: "entries_update", sendAsArray: true }]
+// Result: { entries_update: [{ type: "s3", region: "us-west-2", name: "my-bucket" }] }
 ```
 
-#### Extraction Strategies
+### Flexible Array Conversion
 
-- **`first`**: Use first array element
-- **`last`**: Use last array element  
-- **`index`**: Use specific index (requires `extractionIndex`)
-- **`mostCommon`**: Use most frequently occurring values
+The `sendAsArray` flag provides fine-grained control over which parameters become arrays:
 
 ```tsx
-arrayHandling={{
-  extractProperties: true,
-  extractionStrategy: "index",
-  extractionIndex: 1,               // Use second element (index 1)
-  extractOnlyCommonValues: true     // Only extract properties common to ALL elements
-}}
+globalParams: [
+  "metadata.identifier",  // String value
+  { path: "metadata.resourceConfig", key: "entries_update", sendAsArray: true },  // Array conversion
+  { path: "spec.owner", key: "team_owner" }  // String value
+]
+
+// Results in form data like:
+// {
+//   "identifier": "my-service",
+//   "entries_update": [{ type: "s3", region: "us-west-2" }],
+//   "team_owner": "platform-team"
+// }
 ```
 
 ## Conditional Actions
@@ -275,7 +269,6 @@ spec:
 ```tsx
 <Day2OperationsCard
   title="Payment Service Operations"
-  metadataPath="metadata.additionalInfo.deployment"
   globalParams={[
     "metadata.name", 
     "metadata.namespace",
@@ -288,7 +281,8 @@ spec:
       url: 'https://harness.io/.../scale',
       color: 'primary',
       additionalParams: [
-        { path: "metadata.additionalInfo.deployment.resources", key: "current_resources" }
+        { path: "metadata.additionalInfo.deployment.resources", key: "current_resources" },
+        { path: "metadata.additionalInfo.deployment", key: "entries_update", sendAsArray: true }
       ],
       additionalData: { 
         operation: 'horizontal_scaling' 
@@ -324,14 +318,16 @@ spec:
 **Generated Form Data:**
 ```json
 {
-  "replicas": 3,
-  "environment": "staging", 
-  "resources": { "cpu": "500m", "memory": "1Gi" },
   "name": "payment-service",
   "namespace": "payments", 
   "responsible_team": "team-payments",
   "system_id": "system:fintech/payments",
   "current_resources": { "cpu": "500m", "memory": "1Gi" },
+  "entries_update": [{
+    "replicas": 3,
+    "environment": "staging",
+    "resources": { "cpu": "500m", "memory": "1Gi" }
+  }],
   "operation": "horizontal_scaling"
 }
 ```
@@ -358,17 +354,16 @@ metadata:
 ```tsx
 <Day2OperationsCard
   title="Database Operations"
-  metadataPath="metadata.additionalInfo"
-  arrayHandling={{
-    extractProperties: true,
-    extractionStrategy: "first",        // Extract from primary-db  
-    extractOnlyCommonValues: false,     // Get all properties
-    includeOriginalArrayKey: true       // Keep databases array
-  }}
+  globalParams={[
+    { path: "metadata.additionalInfo.databases", key: "databases_config", sendAsArray: false }
+  ]}
   actions={[
     {
       name: 'Backup Database',
       url: 'https://harness.io/.../backup',
+      additionalParams: [
+        { path: "metadata.additionalInfo.databases", key: "entries_backup", sendAsArray: true }
+      ],
       additionalData: {
         backup_type: 'full',
         compression: true
@@ -377,11 +372,13 @@ metadata:
     {
       name: 'Update SSL Certificate',
       url: 'https://harness.io/.../ssl-update', 
+      additionalParams: [
+        { path: "metadata.additionalInfo.databases", key: "entries_ssl", sendAsArray: true }
+      ],
       disableConditions: [{
-        path: "metadata.additionalInfo.databases",
-        // Custom condition checking if any database has ssl: false
-        notIn: [{"ssl": false}],
-        tooltip: "All databases already have SSL enabled"
+        path: "metadata.additionalInfo.databases.0.ssl",
+        equals: false,
+        tooltip: "SSL is not enabled on primary database"
       }]
     }
   ]}
@@ -452,10 +449,10 @@ disableConditions: [{
 ### Data Precedence Reminder
 
 Form data merging order (later overrides earlier):
-1. Base metadata from `metadataPath`
-2. Array property extraction (if enabled)  
-3. Global parameters from `globalParams`
-4. Per-action parameters from `additionalParams`
-5. Action-specific `additionalData`
+1. Global parameters from `globalParams`
+2. Per-action parameters from `additionalParams`
+3. Action-specific `additionalData`
+
+**Array Conversion**: The `sendAsArray` flag is applied during parameter processing, ensuring values are converted before merging.
 
 This allows fine-grained control over what data gets sent to workflows.
