@@ -36,7 +36,7 @@ export interface Day2OperationsCardProps {
   title?: string;
   workflowUrl?: string; // Single workflow URL (backwards compatibility)
   actions?: WorkflowAction[]; // Multiple workflow actions
-  metadataPath: string; // Root path for metadata extraction (e.g., "metadata.new")
+  metadataPath?: string; // Root path for metadata extraction (e.g., "metadata.new") - optional
   globalParams?: (string | { path: string; key: string })[]; // Global metadata paths to include in form data for all actions
   autoSelectFirstElement?: boolean; // Auto-select first element of arrays (default: true)
   arrayHandling?: {
@@ -62,7 +62,7 @@ export function Day2OperationsCard({
 
   // Function to resolve metadata path dynamically
   const resolveMetadataValue = (path: string): any => {
-    if (!entity) return null;
+    if (!entity || !path) return null;
     
     const keys = path.split('.');
     let current: any = entity;
@@ -82,12 +82,12 @@ export function Day2OperationsCard({
   const buildFormData = (action: WorkflowAction): Record<string, any> => {
     const formData: Record<string, any> = {};
     
-    // Extract all key-value pairs from the specified metadata path
-    const metadataData = resolveMetadataValue(metadataPath);
+    // Extract all key-value pairs from the specified metadata path (if provided)
+    const metadataData = metadataPath ? resolveMetadataValue(metadataPath) : null;
     if (metadataData && typeof metadataData === 'object') {
       if (Array.isArray(metadataData)) {
         // If metadataPath points to an array, use the last segment of the path as the key
-        const pathSegments = metadataPath.split('.');
+        const pathSegments = metadataPath ? metadataPath.split('.') : [];
         const arrayKey = pathSegments[pathSegments.length - 1] || 'data';
         
         // Include original array key if configured to do so (default: true for backward compatibility)
@@ -299,9 +299,9 @@ export function Day2OperationsCard({
     }, 1000);
   };
 
-  // Check if metadata path has data
-  const metadataData = resolveMetadataValue(metadataPath);
-  const hasData = metadataData && typeof metadataData === 'object' && Object.keys(metadataData).length > 0;
+  // Check if metadata path has data (only if metadataPath is provided)
+  const metadataData = metadataPath ? resolveMetadataValue(metadataPath) : {};
+  const hasData = !metadataPath || (metadataData && typeof metadataData === 'object' && Object.keys(metadataData).length > 0);
 
   // Determine which actions to show
   const actionsToShow: WorkflowAction[] = [];
@@ -319,7 +319,7 @@ export function Day2OperationsCard({
     });
   }
 
-  if (!hasData) {
+  if (!hasData && metadataPath) {
     return (
       <Card sx={{ mb: 2 }}>
         <CardContent>
