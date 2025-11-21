@@ -20,7 +20,7 @@ interface WorkflowAction {
   color?: 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
   variant?: 'contained' | 'outlined' | 'text';
   additionalData?: Record<string, any>; // Additional key-value pairs to append to form data for this action
-  additionalParams?: (string | { path: string; key: string })[]; // Per-action metadata paths to include in form data
+  additionalParams?: (string | { path: string; key: string; sendAsArray?: boolean })[]; // Per-action metadata paths to include in form data
   disableConditions?: {
     path: string; // Path to metadata value to check (e.g., "metadata.deployment.state")
     equals?: any; // Disable if value equals this
@@ -37,15 +37,8 @@ export interface Day2OperationsCardProps {
   workflowUrl?: string; // Single workflow URL (backwards compatibility)
   actions?: WorkflowAction[]; // Multiple workflow actions
   metadataPath?: string; // Root path for metadata extraction (e.g., "metadata.new") - optional
-  globalParams?: (string | { path: string; key: string })[]; // Global metadata paths to include in form data for all actions
+  globalParams?: (string | { path: string; key: string; sendAsArray?: boolean })[]; // Global metadata paths to include in form data for all actions
   autoSelectFirstElement?: boolean; // Auto-select first element of arrays (default: true)
-  arrayHandling?: {
-    extractProperties?: boolean; // Whether to extract individual properties from array elements for global field pre-population
-    extractionStrategy?: 'first' | 'last' | 'mostCommon' | 'index'; // Which element to use for extraction
-    extractionIndex?: number; // Specific index to use when strategy is 'index'
-    extractOnlyCommonValues?: boolean; // Only extract properties that are the same across all elements
-    includeOriginalArrayKey?: boolean; // Whether to include the original array key (e.g., "entries") alongside entries_* keys
-  };
 }
 
 export function Day2OperationsCard({
@@ -54,8 +47,7 @@ export function Day2OperationsCard({
   actions,
   metadataPath,
   globalParams,
-  autoSelectFirstElement = true,
-  arrayHandling
+  autoSelectFirstElement = true
 }: Day2OperationsCardProps) {
   const { entity } = useEntity();
   const [loading, setLoading] = useState<string | null>(null);
@@ -82,81 +74,17 @@ export function Day2OperationsCard({
   const buildFormData = (action: WorkflowAction): Record<string, any> => {
     const formData: Record<string, any> = {};
     
-    // Extract all key-value pairs from the specified metadata path (if provided)
+    // Get metadata data for later use (if provided)
     const metadataData = metadataPath ? resolveMetadataValue(metadataPath) : null;
-    if (metadataData && typeof metadataData === 'object') {
-      if (Array.isArray(metadataData)) {
-        // If metadataPath points to an array, use the last segment of the path as the key
-        const pathSegments = metadataPath ? metadataPath.split('.') : [];
-        const arrayKey = pathSegments[pathSegments.length - 1] || 'data';
-        
-        // Include original array key if configured to do so (default: true for backward compatibility)
-        if (arrayHandling?.includeOriginalArrayKey !== false) {
-          formData[arrayKey] = metadataData;
-        }
-        
-        // Handle array property extraction based on configuration
-        if (arrayHandling?.extractProperties && metadataData.length > 0) {
-          let elementToExtract: any = null;
-          
-          // Determine which element to extract properties from
-          switch (arrayHandling.extractionStrategy) {
-            case 'first':
-              elementToExtract = metadataData[0];
-              break;
-            case 'last':
-              elementToExtract = metadataData[metadataData.length - 1];
-              break;
-            case 'index':
-              if (arrayHandling.extractionIndex !== undefined && arrayHandling.extractionIndex < metadataData.length) {
-                elementToExtract = metadataData[arrayHandling.extractionIndex];
-              }
-              break;
-            case 'mostCommon':
-              // Implementation for most common values would go here
-              elementToExtract = metadataData[0]; // Fallback to first
-              break;
-            default:
-              elementToExtract = metadataData[0]; // Default to first
-          }
-          
-          // Extract properties from the selected element
-          if (elementToExtract && typeof elementToExtract === 'object') {
-            Object.entries(elementToExtract).forEach(([key, value]) => {
-              if (value !== null && value !== undefined) {
-                let shouldExtract = true;
-                
-                // If extractOnlyCommonValues is true, check if all elements have the same value
-                if (arrayHandling.extractOnlyCommonValues) {
-                  shouldExtract = metadataData.every(item => 
-                    item && typeof item === 'object' && item[key] === value
-                  );
-                }
-                
-                if (shouldExtract) {
-                  formData[key] = value;
-                }
-              }
-            });
-          }
-        }
-      } else {
-        // Add all key-value pairs to formData for objects
-        Object.entries(metadataData).forEach(([key, value]) => {
-          if (value !== null && value !== undefined) {
-            formData[key] = value;
-          }
-        });
-      }
-    }
     
     // Process global parameters (apply to all actions)
-    const processParams = (params: (string | { path: string; key: string })[] | undefined) => {
+    const processParams = (params: (string | { path: string; key: string; sendAsArray?: boolean })[] | undefined) => {
       if (!params) return;
       
       params.forEach(param => {
         let paramPath: string;
         let key: string;
+        let sendAsArray = false;
         
         if (typeof param === 'string') {
           // Handle both catalog.yaml values and metadata paths
@@ -172,7 +100,7 @@ export function Day2OperationsCard({
             key = param.split('.').pop() || param;
           }
         } else {
-          // Object format: { path: string; key: string }
+          // Object format: { path: string; key: string; sendAsArray?: boolean }
           if (param.path.startsWith('catalog:')) {
             // Direct value from catalog.yaml
             const catalogValue = param.path.substring(8);
@@ -182,16 +110,24 @@ export function Day2OperationsCard({
             // Metadata path
             paramPath = param.path;
             key = param.key;
+            sendAsArray = param.sendAsArray || false;
           }
         }
         
         const paramValue = resolveMetadataValue(paramPath);
         if (paramValue !== null && paramValue !== undefined) {
+          let finalValue = paramValue;
+          
           // Auto-select first element if it's an array and autoSelectFirstElement is true
           if (autoSelectFirstElement && Array.isArray(paramValue) && paramValue.length > 0) {
-            formData[key] = paramValue[0];
+            finalValue = paramValue[0];
+          }
+          
+          // Apply sendAsArray flag
+          if (sendAsArray && !Array.isArray(finalValue)) {
+            formData[key] = [finalValue];
           } else {
-            formData[key] = paramValue;
+            formData[key] = finalValue;
           }
         }
       });
@@ -210,21 +146,6 @@ export function Day2OperationsCard({
           formData[key] = value;
         }
       });
-    }
-    
-    // CRITICAL FIX: Ensure component_name is always an array for component entities
-    if (formData.source === 'component' && formData.component_name && !Array.isArray(formData.component_name)) {
-      formData.component_name = [formData.component_name];
-    }
-      
-
-    // Map resourceConfig to entries_* format for component entities
-    if (formData.source === 'component' && formData.action && metadataData && !Array.isArray(metadataData)) {
-      const action = formData.action;
-      const entriesKey = `entries_${action}`;
-      
-      // Use the entire metadataData (resourceConfig) as the array element
-      formData[entriesKey] = [metadataData];
     }
     
     return formData;

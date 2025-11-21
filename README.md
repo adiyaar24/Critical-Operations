@@ -9,7 +9,7 @@
 - 🎨 **Multiple Action Support** - Configure multiple operations with custom styling and conditional logic
 - 🔒 **Per-Action Data** - Include action-specific data and parameters for granular control
 - 📝 **Global & Action Parameters** - Pull metadata from custom paths with configurable keys
-- 🔄 **Advanced Array Handling** - Sophisticated array processing with multiple extraction strategies
+- 🔢 **Array Conversion Support** - Convert any parameter to array format using `sendAsArray` flag
 - 🚫 **Conditional Disabling** - Disable actions based on metadata conditions with tooltips
 - ⚡ **Instant Execution** - Direct workflow execution without confirmation dialogs
 - 🔧 **Backward Compatibility** - Supports legacy single workflow URL format
@@ -94,9 +94,8 @@ import { Day2OperationsCard } from '@adiyaar/backstage-plugin-critical-operation
 | `workflowUrl` | `string` | - | ❌ | Single workflow URL (legacy support) |
 | `actions` | `WorkflowAction[]` | - | ❌ | Array of workflow operations to display |
 | `metadataPath` | `string` | - | ✅ | Root path for metadata extraction (e.g., "metadata.new") |
-| `globalParams` | `(string \| {path: string, key: string})[]` | - | ❌ | Global metadata paths included in all actions |
+| `globalParams` | `(string \| {path: string, key: string, sendAsArray?: boolean})[]` | - | ❌ | Global metadata paths included in all actions |
 | `autoSelectFirstElement` | `boolean` | `true` | ❌ | Auto-select first element from arrays |
-| `arrayHandling` | `ArrayHandling` | - | ❌ | Advanced array processing configuration |
 
 ### WorkflowAction Interface
 
@@ -110,7 +109,7 @@ interface WorkflowAction {
   variant?: 'contained'            // Button style variant
     | 'outlined' | 'text';
   additionalData?: Record<string, any>;  // Action-specific data (overrides metadata)
-  additionalParams?: (string | { path: string; key: string })[]; // Per-action metadata paths
+  additionalParams?: (string | { path: string; key: string; sendAsArray?: boolean })[]; // Per-action metadata paths
   disableConditions?: DisableCondition[]; // Conditions to disable this action
   disabledTooltip?: string;        // General tooltip when disabled
 }
@@ -129,16 +128,20 @@ interface DisableCondition {
 }
 ```
 
-### ArrayHandling Interface
+### Parameter Configuration
 
 ```typescript
-interface ArrayHandling {
-  extractProperties?: boolean;     // Extract individual properties from array elements
-  extractionStrategy?: 'first' | 'last' | 'mostCommon' | 'index'; // Which element to use
-  extractionIndex?: number;        // Specific index when strategy is 'index'
-  extractOnlyCommonValues?: boolean; // Only extract properties common to all elements
-  includeOriginalArrayKey?: boolean; // Include original array key alongside extracted properties
+// String format - uses last path segment as key
+type StringParam = string;
+
+// Object format - with optional array conversion
+interface ObjectParam {
+  path: string;           // Metadata path to extract from
+  key: string;            // Key to use in form data
+  sendAsArray?: boolean;  // Convert value to array format [value] (default: false)
 }
+
+type ParamConfig = StringParam | ObjectParam;
 ```
 
 ## 🔧 Configuration Examples
@@ -162,69 +165,67 @@ spec:
   owner: team-platform
 ```
 
-### Accessing Nested Data
+### Parameter Configuration Examples
 
-| Path Configuration | Result | Key in Form Data | Notes |
-|---------------------|--------|------------------|--------|
-| `"metadata.identifier"` | `"service_123"` | `identifier` | Last path segment as key |
-| `"spec.system"` | `"system:my-org/my-system"` | `system` | First element (autoSelect) |
-| `{path: "spec.owner", key: "team_owner"}` | `"team-platform"` | `team_owner` | Custom key |
+| Configuration | Result | Key in Form Data | Notes |
+|---------------|--------|------------------|-------|
+| `"metadata.identifier"` | `"service_123"` | `identifier` | String format - uses last path segment |
+| `{path: "spec.owner", key: "team_owner"}` | `"team-platform"` | `team_owner` | Object format - custom key |
+| `{path: "metadata.config", key: "entries_update", sendAsArray: true}` | `[{...}]` | `entries_update` | Converts object to array |
 | `"catalog:component_type"` | `"component_type"` | `component_type` | Direct catalog value |
-| `metadata.additionalInfo.deployment` | `{environment: "production", region: "us-east-1"}` | Spreads all keys | Object spread |
 
 ## 🎛️ Advanced Features
 
-### Parameter Types and Scoping
+### Parameter Types and Array Conversion
 
-The component supports three types of parameters:
-- **Global Parameters (`globalParams`)**: Applied to all actions
-- **Per-Action Parameters (`additionalParams`)**: Specific to individual actions  
-- **Additional Data (`additionalData`)**: Static key-value pairs for actions
+The component supports flexible parameter configuration with optional array conversion:
 
 ```typescript
 // Global parameters - applied to all actions
 globalParams: [
-  "spec.system",  // Legacy format
-  { path: "spec.owner", key: "team_owner" },  // Custom key
+  "spec.system",  // String format
+  { path: "spec.owner", key: "team_owner" },  // Object format with custom key
+  { path: "metadata.resourceConfig", key: "entries_update", sendAsArray: true },  // Convert to array
   "catalog:service_type"  // Direct catalog value
 ]
 
 // Per-action parameters - only for specific actions
 actions: [{
-  name: "Scale Service",
+  name: "Update Service",
   url: "https://...",
   additionalParams: [
-    { path: "metadata.scaling.maxReplicas", key: "max_replicas" }
+    { path: "metadata.scaling.maxReplicas", key: "max_replicas", sendAsArray: true }
   ],
   additionalData: {
-    operation_type: "scale",
+    operation_type: "update",
     priority: "high"
   }
 }]
 ```
 
-### Advanced Array Handling
+### Array Conversion with sendAsArray
 
-Configure sophisticated array processing with the `arrayHandling` prop:
+Convert any parameter value to array format using the `sendAsArray` flag:
 
 ```typescript
-arrayHandling={{
-  extractProperties: true,        // Extract individual properties from array elements
-  extractionStrategy: "first",    // Which element: first, last, mostCommon, index
-  extractionIndex: 0,            // Specific index when strategy is 'index'
-  extractOnlyCommonValues: true, // Only extract properties common to all elements
-  includeOriginalArrayKey: true  // Include original array alongside extracted properties
-}}
+// Configuration
+additionalParams: [
+  {
+    path: "metadata.resourceConfig",
+    key: "entries_update", 
+    sendAsArray: true  // Converts object to [object]
+  }
+]
 ```
 
-**Example**: Entity has `entries: [{ name: "app1", port: 8080 }, { name: "app2", port: 8080 }]`
+**Example**: Entity has `resourceConfig: { type: "s3", region: "us-west-2" }`
 
 ```typescript
-// With extractProperties: true, extractOnlyCommonValues: true
-// Result: { entries: [...], port: 8080 }  // 'name' excluded (different values)
+// With sendAsArray: false (default)
+// Result: { entries_update: { type: "s3", region: "us-west-2" } }
 
-// With extractionStrategy: "last"
-// Result: { entries: [...], name: "app2", port: 8080 }
+// With sendAsArray: true
+// Result: { entries_update: [{ type: "s3", region: "us-west-2" }] }
 ```
 
 ### Conditional Action Disabling
@@ -253,11 +254,11 @@ disableConditions: [
 
 ### Data Merge Priority
 Form data is merged in this order (later overrides earlier):
-1. Base metadata from `metadataPath`  
-2. Extracted array properties (if `arrayHandling.extractProperties` is true)
-3. Global parameters from `globalParams`
-4. Per-action parameters from `additionalParams`
-5. Action-specific `additionalData`
+1. Global parameters from `globalParams`
+2. Per-action parameters from `additionalParams`  
+3. Action-specific `additionalData`
+
+**Note**: The `sendAsArray` conversion is applied during parameter processing.
 
 ### Generated Workflow URLs
 The plugin creates URLs in this format:
@@ -271,21 +272,21 @@ Where `formData` contains URL-encoded JSON with all the resolved metadata.
 
 ```mermaid
 flowchart LR
-    A[Entity Metadata] --> B[Extract Base Data]
-    C[Additional Params] --> B
-    B --> D[Auto-select Arrays]
-    D --> E[Merge Hidden Data]
+    A[Entity Metadata] --> B[Process Global Params]
+    A --> C[Process Action Params]
+    B --> D[Apply sendAsArray]
+    C --> D
+    D --> E[Merge Additional Data]
     E --> F[Encode as URL]
     F --> G[Open Harness Workflow]
 ```
 
-1. **Extract** metadata from the specified `metadataPath`
-2. **Process** arrays based on `arrayHandling` configuration
-3. **Include** global parameters from `globalParams` 
-4. **Include** per-action parameters from `additionalParams`
-5. **Merge** with action-specific `additionalData`
-6. **Encode** everything as a URL parameter
-7. **Launch** the Harness workflow with pre-filled forms
+1. **Extract** global parameters from `globalParams`
+2. **Extract** per-action parameters from `additionalParams`
+3. **Apply** `sendAsArray` conversion where specified
+4. **Merge** with action-specific `additionalData`
+5. **Encode** everything as a URL parameter
+6. **Launch** the Harness workflow with pre-filled forms
 
 ## 🎯 Complete Real-World Example
 
@@ -312,22 +313,18 @@ spec:
 Using this configuration:
 ```tsx
 <Day2OperationsCard
-  metadataPath="metadata.additionalInfo.deployment"
+  title="Payment Service Operations"
   globalParams={[
     "metadata.identifier",
     { path: "spec.owner", key: "team_owner" },
     "catalog:service_type"
   ]}
-  arrayHandling={{
-    extractProperties: true,
-    extractionStrategy: "first",
-    extractOnlyCommonValues: false,
-    includeOriginalArrayKey: true
-  }}
   actions={[{
     name: "Update Service",
+    url: "https://app.harness.io/.../Update_Template",
     additionalParams: [
-      { path: "spec.system", key: "primary_system" }
+      { path: "spec.system", key: "primary_system" },
+      { path: "metadata.additionalInfo.deployment.entries", key: "entries_update", sendAsArray: true }
     ],
     additionalData: {
       operation: "update",
@@ -340,16 +337,17 @@ Using this configuration:
 Results in this form data:
 ```json
 {
-  "replicas": 3,
-  "environment": "production", 
-  "entries": [...],
-  "name": "payment-api",
-  "port": 8080,
-  "protocol": "http",
   "identifier": "payment-service",
   "team_owner": "team-payments",
   "service_type": "service_type",
   "primary_system": "system:payments/core",
+  "entries_update": [
+    {
+      "name": "payment-api",
+      "port": 8080,
+      "protocol": "http"
+    }
+  ],
   "operation": "update",
   "priority": "normal"
 }
