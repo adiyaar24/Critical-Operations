@@ -38,8 +38,15 @@ const DevPage = () => (
       
       {/* Single Action Example */}
       <Day2OperationsCard
-        title="Single Action (Backwards Compatible)"
-        workflowUrl="https://app.harness.io/ng/account/Npsd6WrETY-Baq6iHeOHGw/module/idp/create/templates/default/Simple_Action_Workflow"
+        title="Single Action Example"
+        actions={[
+          {
+            name: 'Open Workflow',
+            url: 'https://app.harness.io/ng/account/Npsd6WrETY-Baq6iHeOHGw/module/idp/create/templates/default/Simple_Action_Workflow',
+            color: 'primary',
+            variant: 'contained'
+          }
+        ]}
         metadataPath="metadata.new"
       />
       

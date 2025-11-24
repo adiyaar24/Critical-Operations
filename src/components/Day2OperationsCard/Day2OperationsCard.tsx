@@ -34,8 +34,7 @@ interface WorkflowAction {
 
 export interface Day2OperationsCardProps {
   title?: string;
-  workflowUrl?: string; // Single workflow URL (backwards compatibility)
-  actions?: WorkflowAction[]; // Multiple workflow actions
+  actions: WorkflowAction[]; // Array of workflow operations to display
   metadataPath?: string; // Root path for metadata extraction (e.g., "metadata.new") - optional
   globalParams?: (string | { path: string; key: string; sendAsArray?: boolean })[]; // Global metadata paths to include in form data for all actions
   autoSelectFirstElement?: boolean; // Auto-select first element of arrays (default: true)
@@ -43,7 +42,6 @@ export interface Day2OperationsCardProps {
 
 export function Day2OperationsCard({
   title = "Day 2 Operations",
-  workflowUrl,
   actions,
   metadataPath,
   globalParams,
@@ -221,21 +219,8 @@ export function Day2OperationsCard({
   const metadataData = metadataPath ? resolveMetadataValue(metadataPath) : {};
   const hasData = !metadataPath || (metadataData && typeof metadataData === 'object' && Object.keys(metadataData).length > 0);
 
-  // Determine which actions to show
-  const actionsToShow: WorkflowAction[] = [];
-  
-  if (actions && actions.length > 0) {
-    // Use provided actions
-    actionsToShow.push(...actions);
-  } else if (workflowUrl) {
-    // Backwards compatibility: single workflow URL
-    actionsToShow.push({
-      name: 'Open Workflow',
-      url: workflowUrl,
-      color: 'primary',
-      variant: 'contained'
-    });
-  }
+  // Use provided actions
+  const actionsToShow = actions || [];
 
   if (!hasData && metadataPath) {
     return (
@@ -260,7 +245,7 @@ export function Day2OperationsCard({
             {title}
           </Typography>
           <Alert severity="warning">
-            No workflow actions configured. Please provide either <code>workflowUrl</code> or <code>actions</code> prop.
+            No workflow actions configured. Please provide <code>actions</code> prop with at least one action.
           </Alert>
         </CardContent>
       </Card>
