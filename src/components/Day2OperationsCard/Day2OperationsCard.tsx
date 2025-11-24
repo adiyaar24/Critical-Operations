@@ -74,9 +74,6 @@ export function Day2OperationsCard({
   const buildFormData = (action: WorkflowAction): Record<string, any> => {
     const formData: Record<string, any> = {};
     
-    // Get metadata data for later use (if provided)
-    const metadataData = metadataPath ? resolveMetadataValue(metadataPath) : null;
-    
     // Process global parameters (apply to all actions)
     const processParams = (params: (string | { path: string; key: string; sendAsArray?: boolean })[] | undefined) => {
       if (!params) return;
