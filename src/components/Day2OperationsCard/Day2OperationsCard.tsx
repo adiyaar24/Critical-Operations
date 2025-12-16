@@ -13,6 +13,7 @@ import {
 import {
   Launch as LaunchIcon
 } from '@mui/icons-material';
+import { Box } from '@mui/material';
 
 interface WorkflowAction {
   name: string;
@@ -49,6 +50,69 @@ export function Day2OperationsCard({
 }: Day2OperationsCardProps) {
   const { entity } = useEntity();
   const [loading, setLoading] = useState<string | null>(null);
+
+  // Function to get current state from metadata
+  const getCurrentState = (): string | null => {
+    // Check metadata.deployment.state first
+    let state = resolveMetadataValue('metadata.deployment.state');
+    
+    // If not found, check metadata.additionalInfo.deployment.state
+    if (!state) {
+      state = resolveMetadataValue('metadata.additionalInfo.deployment.state');
+    }
+    
+    return state;
+  };
+
+  // Function to get state color based on state value
+  const getStateColor = (state: string): string => {
+    switch (state?.toLowerCase()) {
+      case 'provisioning':
+        return '#FFA726'; // Yellow/Orange
+      case 'active':
+        return '#66BB6A'; // Green
+      case 'failed':
+        return '#EF5350'; // Red
+      default:
+        return '#9E9E9E'; // Gray for unknown states
+    }
+  };
+
+  // Function to render state indicator
+  const renderStateIndicator = () => {
+    const currentState = getCurrentState();
+    
+    if (!currentState) {
+      return null; // Don't render if no state is available
+    }
+
+    const stateColor = getStateColor(currentState);
+    
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+        <Box
+          sx={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            backgroundColor: stateColor,
+            mr: 1,
+            boxShadow: `0 0 6px ${stateColor}40`
+          }}
+        />
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            fontSize: '0.875rem',
+            fontWeight: 500
+          }}
+        >
+          Current state: <Box component="span" sx={{ fontWeight: 'bold' }}>{currentState.charAt(0).toUpperCase() + currentState.slice(1).toLowerCase()}</Box>
+        </Typography>
+      </Box>
+    );
+  };
 
   // Function to resolve metadata path dynamically
   const resolveMetadataValue = (path: string): any => {
@@ -256,9 +320,12 @@ export function Day2OperationsCard({
     <>
       <Card sx={{ mb: 2 }}>
         <CardContent>
-          <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
-            {title}
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6">
+              {title}
+            </Typography>
+            {renderStateIndicator()}
+          </Box>
           
           <Grid container spacing={2} sx={{ mb: 2 }}>
             {actionsToShow.map((action, index) => {
