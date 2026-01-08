@@ -17,7 +17,6 @@ import { Box } from '@mui/material';
 
 interface WorkflowAction {
   name: string;
-  url: string;
   color?: 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
   variant?: 'contained' | 'outlined' | 'text';
   additionalData?: Record<string, any>; // Additional key-value pairs to append to form data for this action
@@ -260,12 +259,20 @@ export function Day2OperationsCard({
     return { disabled: false };
   };
 
+  // Get workflow URL from metadata
+  const getWorkflowUrl = (): string | null => {
+    return resolveMetadataValue('metadata.workflowUrl');
+  };
+
   // Function to handle operation execution
   const handleOperation = async (action: WorkflowAction) => {
     const disableState = getActionDisableState(action);
     if (disableState.disabled) return; // Don't execute if disabled
     
-    const url = buildWorkflowUrl(action.url, action);
+    const workflowUrl = getWorkflowUrl();
+    if (!workflowUrl) return; // Don't execute if no workflow URL
+    
+    const url = buildWorkflowUrl(workflowUrl, action);
     executeOperation(url, action.name);
   };
 
@@ -310,6 +317,23 @@ export function Day2OperationsCard({
           </Typography>
           <Alert severity="warning">
             No workflow actions configured. Please provide <code>actions</code> prop with at least one action.
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Check if workflowUrl is set in metadata
+  const workflowUrl = getWorkflowUrl();
+  if (!workflowUrl) {
+    return (
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            {title}
+          </Typography>
+          <Alert severity="warning">
+            <code>metadata.workflowUrl</code> not set. Please set this value in your entity metadata to enable Day 2 Operations.
           </Alert>
         </CardContent>
       </Card>

@@ -56,7 +56,6 @@ import { Day2OperationsCard } from '@adiyaar/backstage-plugin-critical-operation
   actions={[
     {
       name: 'Update Service',
-      url: 'https://app.harness.io/ng/account/YOUR_ACCOUNT/module/idp/create/templates/default/Update_Template',
       color: 'primary',
       variant: 'contained',
       additionalParams: [
@@ -66,6 +65,8 @@ import { Day2OperationsCard } from '@adiyaar/backstage-plugin-critical-operation
   ]}
 />
 ```
+
+> **Note**: The workflow URL is read from `metadata.workflowUrl` in your entity's catalog-info.yaml. Make sure to set this value to enable Day 2 Operations.
 
 ### 🎯 Want More Examples?
 👉 **See [USAGE_EXAMPLE.md](./USAGE_EXAMPLE.md) for comprehensive examples, real-world scenarios, and troubleshooting guide**
@@ -180,7 +181,6 @@ type ParamConfig = StringParam | ObjectParam;
 ```typescript
 interface WorkflowAction {
   name: string;                    // Button display name
-  url: string;                     // Harness workflow URL
   color?: 'primary' | 'secondary'  // Button color theme
     | 'success' | 'error' 
     | 'info' | 'warning';
@@ -191,6 +191,8 @@ interface WorkflowAction {
   disableConditions?: DisableCondition[]; // Conditions to disable action
 }
 ```
+
+> **Note**: The workflow URL is automatically read from `metadata.workflowUrl` in your entity metadata. You don't need to specify it per action.
 
 ### DisableCondition Interface
 
@@ -217,6 +219,7 @@ kind: Component
 metadata:
   name: my-service
   identifier: service_123
+  workflowUrl: 'https://app.harness.io/ng/account/YOUR_ACCOUNT/module/idp/create/templates/default/Your_Template'  # Required for Day 2 Operations
   additionalInfo:
     deployment:
       environment: production
@@ -229,6 +232,8 @@ spec:
   system: [system:my-org/my-system]
   owner: team-platform
 ```
+
+> **Important**: The `metadata.workflowUrl` field is required for the Day 2 Operations card to function. If not set, the card will display a warning message.
 
 ### Parameter Configuration Examples
 
@@ -276,7 +281,6 @@ flowchart LR
   actions={[
     {
       name: 'Deploy',
-      url: 'https://harness.io/.../deploy',
       color: 'primary'
     }
   ]}
@@ -295,7 +299,6 @@ flowchart LR
   actions={[
     {
       name: 'Update Resources',
-      url: 'https://harness.io/.../update',
       color: 'primary',
       additionalParams: [
         { 
@@ -321,7 +324,6 @@ flowchart LR
   actions={[
     {
       name: 'Promote to Production',
-      url: 'https://harness.io/.../promote',
       color: 'success',
       disableConditions: [{
         path: "metadata.additionalInfo.deployment.environment",

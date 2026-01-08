@@ -4,6 +4,7 @@ A comprehensive guide to using the `Day2OperationsCard` component with detailed 
 
 ## 📋 Table of Contents
 
+- [Entity Configuration](#entity-configuration)
 - [Basic Usage](#basic-usage)
 - [Advanced Configuration](#advanced-configuration)
 - [Parameter Types](#parameter-types)
@@ -11,6 +12,26 @@ A comprehensive guide to using the `Day2OperationsCard` component with detailed 
 - [Conditional Actions](#conditional-actions)
 - [Real-World Scenarios](#real-world-scenarios)
 - [Troubleshooting](#troubleshooting)
+
+## Entity Configuration
+
+Before using the Day2OperationsCard, you must set the `metadata.workflowUrl` in your entity's catalog-info.yaml:
+
+```yaml
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: my-service
+  workflowUrl: 'https://app.harness.io/ng/account/YOUR_ACCOUNT/module/idp/create/templates/default/Your_Template'
+  additionalInfo:
+    deployment:
+      environment: staging
+      replicas: 3
+spec:
+  owner: team-platform
+```
+
+> **Important**: If `metadata.workflowUrl` is not set, the Day2OperationsCard will display a warning message: *"metadata.workflowUrl not set. Please set this value in your entity metadata to enable Day 2 Operations."*
 
 ## Basic Usage
 
@@ -24,7 +45,6 @@ import { Day2OperationsCard } from '@adiyaar/backstage-plugin-critical-operation
   actions={[
     {
       name: 'Deploy Service',
-      url: 'https://app.harness.io/ng/account/YOUR_ACCOUNT/module/idp/create/templates/default/Deploy_Template',
       color: 'primary',
       variant: 'contained'
     }
@@ -36,8 +56,11 @@ import { Day2OperationsCard } from '@adiyaar/backstage-plugin-critical-operation
 **What this does:**
 - Displays a card titled "Service Operations"
 - Shows a blue "Deploy Service" button
+- Reads the workflow URL from `metadata.workflowUrl` in your entity
 - Extracts all key-value pairs from `metadata.additionalInfo.deployment`
 - Generates a Harness workflow URL with the extracted data
+
+> **Note**: Make sure `metadata.workflowUrl` is set in your entity's catalog-info.yaml to enable Day 2 Operations.
 
 ## Advanced Configuration
 
@@ -58,7 +81,6 @@ import { Day2OperationsCard } from '@adiyaar/backstage-plugin-critical-operation
   actions={[
     {
       name: 'Scale Up',
-      url: 'https://app.harness.io/.../Scale_Template',
       color: 'success',
       variant: 'contained',
       additionalData: {
@@ -68,7 +90,6 @@ import { Day2OperationsCard } from '@adiyaar/backstage-plugin-critical-operation
     },
     {
       name: 'Scale Down', 
-      url: 'https://app.harness.io/.../Scale_Template',
       color: 'warning',
       variant: 'outlined',
       additionalData: {
@@ -78,7 +99,6 @@ import { Day2OperationsCard } from '@adiyaar/backstage-plugin-critical-operation
     },
     {
       name: 'Restart Service',
-      url: 'https://app.harness.io/.../Restart_Template',
       color: 'info',
       variant: 'contained'
     }
@@ -113,7 +133,6 @@ Applied only to specific actions with optional array conversion.
 actions={[
   {
     name: 'Update Database',
-    url: 'https://...',
     additionalParams: [
       "metadata.database.connectionString",      // Key: connectionString
       { path: "metadata.database.port", key: "db_port" },  // Key: db_port
@@ -202,7 +221,6 @@ Disable actions based on entity metadata conditions:
 actions={[
   {
     name: 'Delete Service',
-    url: 'https://...',
     color: 'error',
     disableConditions: [{
       path: "metadata.environment",
@@ -251,6 +269,7 @@ disableConditions: [
 metadata:
   name: payment-service
   namespace: payments
+  workflowUrl: 'https://app.harness.io/ng/account/YOUR_ACCOUNT/module/idp/create/templates/default/Service_Template'
   additionalInfo:
     deployment:
       replicas: 3
@@ -278,7 +297,6 @@ spec:
   actions={[
     {
       name: 'Scale Service',
-      url: 'https://harness.io/.../scale',
       color: 'primary',
       additionalParams: [
         { path: "metadata.additionalInfo.deployment.resources", key: "current_resources" },
@@ -290,7 +308,6 @@ spec:
     },
     {
       name: 'Update Configuration', 
-      url: 'https://harness.io/.../update-config',
       color: 'info',
       additionalData: { 
         operation: 'config_update',
@@ -299,7 +316,6 @@ spec:
     },
     {
       name: 'Promote to Production',
-      url: 'https://harness.io/.../promote',
       color: 'success', 
       disableConditions: [{
         path: "metadata.additionalInfo.deployment.environment",
@@ -337,6 +353,7 @@ spec:
 ```tsx
 // Entity with database configuration array:
 metadata:
+  workflowUrl: 'https://app.harness.io/ng/account/YOUR_ACCOUNT/module/idp/create/templates/default/Database_Template'
   additionalInfo:
     databases:
       - name: primary-db
@@ -360,7 +377,6 @@ metadata:
   actions={[
     {
       name: 'Backup Database',
-      url: 'https://harness.io/.../backup',
       additionalParams: [
         { path: "metadata.additionalInfo.databases", key: "entries_backup", sendAsArray: true }
       ],
@@ -371,7 +387,6 @@ metadata:
     },
     {
       name: 'Update SSL Certificate',
-      url: 'https://harness.io/.../ssl-update', 
       additionalParams: [
         { path: "metadata.additionalInfo.databases", key: "entries_ssl", sendAsArray: true }
       ],
@@ -389,7 +404,23 @@ metadata:
 
 ### Common Issues
 
-#### 1. "No metadata found at path"
+#### 1. "metadata.workflowUrl not set" warning
+```tsx
+// ❌ Wrong - missing workflowUrl in entity metadata
+metadata:
+  name: my-service
+  additionalInfo:
+    deployment: {}
+
+// ✅ Correct - add workflowUrl to entity metadata
+metadata:
+  name: my-service
+  workflowUrl: 'https://app.harness.io/ng/account/YOUR_ACCOUNT/module/idp/create/templates/default/Your_Template'
+  additionalInfo:
+    deployment: {}
+```
+
+#### 2. "No metadata found at path"
 ```tsx
 // ❌ Wrong - path doesn't exist
 metadataPath="metadata.nonexistent.path"
@@ -398,7 +429,7 @@ metadataPath="metadata.nonexistent.path"
 metadataPath="metadata.additionalInfo.deployment"
 ```
 
-#### 2. Empty form data
+#### 3. Empty form data
 ```tsx
 // ❌ Wrong - empty object or null at metadataPath
 metadata:
@@ -413,7 +444,7 @@ metadata:
       replicas: 3
 ```
 
-#### 3. Arrays not processing correctly
+#### 4. Arrays not processing correctly
 ```tsx
 // ❌ Wrong - autoSelectFirstElement disabled but expecting single value
 autoSelectFirstElement: false
@@ -424,7 +455,7 @@ autoSelectFirstElement: true
 globalParams: ["spec.system"]   // Results in first element
 ```
 
-#### 4. Conditions not working
+#### 5. Conditions not working
 ```tsx
 // ❌ Wrong - path doesn't resolve to expected value
 disableConditions: [{
