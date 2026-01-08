@@ -2,7 +2,7 @@
 
 🚀 A powerful Backstage plugin that seamlessly integrates Day 2 operations with Harness workflows by automatically pre-filling forms with entity metadata.
 
-[![Version](https://img.shields.io/badge/version-0.4.2-blue.svg)](https://github.com/adiyaar24/Critical-Operations/releases/tag/0.4.2)
+[![Version](https://img.shields.io/badge/version-0.4.4-blue.svg)](https://github.com/adiyaar24/Critical-Operations/releases/tag/0.4.4)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 [![Backstage](https://img.shields.io/badge/Backstage-Plugin-orange.svg)](https://backstage.io/)
 [![Harness IDP](https://img.shields.io/badge/Harness_IDP_2.0-Ready-green.svg)](https://www.harness.io/products/internal-developer-portal)
@@ -428,7 +428,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## 🏷️ Version History
 
-- **0.4.2** - **BREAKING**: Removed legacy `workflowUrl` support, simplified API
+- **0.4.4** - **BREAKING**: Removed legacy `workflowUrl` support, simplified API
 - **0.4.1** - TypeScript compilation fixes and cleanup
 - **0.4.0** - Added `sendAsArray` parameter support, simplified architecture
 - **0.3.x** - Advanced array handling and parameter configuration  
